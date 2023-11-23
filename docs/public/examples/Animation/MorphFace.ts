@@ -19,6 +19,7 @@ class Sample_MorphTarget {
     lastVideoTime: number = -1
     faceLandmarker: FaceLandmarker
     filesetResolver: FilesetResolver
+    guiFolder: dat.GUI
 
     async run() {
         Engine3D.setting.shadow.shadowBound = 100
@@ -93,6 +94,7 @@ class Sample_MorphTarget {
             })
         }
 
+        this.guiFolder = folder
         folder.open()
     }
 
@@ -176,6 +178,8 @@ class Sample_MorphTarget {
             this.influenceData['tongue'] = Mouth * 1.1
             console.log(this.influenceData)
 
+            this.guiFolder.updateDisplay()
+            
             for (let key in this.targetRenderers) {
                 let list = this.blendShapeComponent.getMorphRenderersByKey(key)
                 list[0].setMorphInfluence(key, this.influenceData[key])
