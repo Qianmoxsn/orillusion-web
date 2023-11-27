@@ -1,4 +1,4 @@
-import { Object3D, Scene3D, Engine3D, AtmosphericComponent, webGPUContext, HoverCameraController, View3D, DirectLight, KelvinUtil, Vector3, MorphTargetBlender, CameraUtil, MeshRenderer, PlaneGeometry } from '@orillusion/core'
+import { AtmosphericComponent, CameraUtil, DirectLight, Engine3D, HoverCameraController, KelvinUtil, Matrix4, MeshRenderer, MorphTargetBlender, Object3D, PlaneGeometry, Quaternion, Scene3D, Vector3, View3D, webGPUContext } from '@orillusion/core'
 import { Stats } from '@orillusion/stats'
 import { VideoMaterial, VideoTexture } from '@orillusion/media-extention'
 import dat from 'dat.gui'
@@ -20,6 +20,7 @@ class Sample_MorphTarget {
     faceLandmarker: FaceLandmarker
     filesetResolver: FilesetResolver
     guiFolder: dat.GUI
+    model: Object3D
 
     async run() {
         Engine3D.setting.shadow.shadowBound = 100
@@ -73,7 +74,7 @@ class Sample_MorphTarget {
         model.y = -80.0
         model.x = -30.0
         this.scene.addChild(model)
-        // this.model = model;
+        this.model = model
 
         let folder = gui.addFolder('morph controller')
         // register MorphTargetBlender component
@@ -128,7 +129,7 @@ class Sample_MorphTarget {
         mr.geometry = new PlaneGeometry(192, 108, 1, 1, Vector3.Z_AXIS)
         mr.material = videoMat
 
-        this.scene.addChild(videoPlane)
+        // this.scene.addChild(videoPlane)
         document.body.appendChild(this.htmlVideo)
     }
 
@@ -155,6 +156,7 @@ class Sample_MorphTarget {
         if (this.htmlVideo.currentTime !== this.lastVideoTime) {
             const results = await faceLandmarker.detectForVideo(this.htmlVideo, Date.now())
             await this.face2Morph(results)
+            await this.face2Transform(results)
             this.lastVideoTime = this.htmlVideo.currentTime
         }
 
@@ -165,7 +167,6 @@ class Sample_MorphTarget {
 
     async face2Morph(results) {
         if (results.facialTransformationMatrixes.length > 0) {
-            const facialTransformationMatrixes = results.facialTransformationMatrixes[0].data
             const faceBlendshapes = results.faceBlendshapes[0].categories
 
             let Lefteye = faceBlendshapes[9].score
@@ -176,14 +177,41 @@ class Sample_MorphTarget {
             this.influenceData['leftEye'] = Lefteye * 1.8
             this.influenceData['rightEye'] = Righteye * 1.8
             this.influenceData['tongue'] = Mouth * 1.1
-            console.log(this.influenceData)
+            // console.log(this.influenceData)
 
             this.guiFolder.updateDisplay()
-            
+
             for (let key in this.targetRenderers) {
                 let list = this.blendShapeComponent.getMorphRenderersByKey(key)
                 list[0].setMorphInfluence(key, this.influenceData[key])
             }
+        }
+    }
+
+    async face2Transform(results) {
+        if (results.facialTransformationMatrixes.length > 0) {
+            const faceTransMat = results.facialTransformationMatrixes[0].data
+            // console.log(faceTransMat);
+            let vec3 = new Vector3()
+            let mat4 = new Matrix4()
+
+            vec3.set(faceTransMat[12], faceTransMat[13], faceTransMat[14], faceTransMat[15])
+            vec3.multiplyScalar(1)
+            // this.model.transform.localPosition = vec3;
+
+            vec3.set(faceTransMat[8], faceTransMat[9], faceTransMat[10], faceTransMat[11])
+            mat4.copyColFrom(2, vec3)
+            vec3.set(faceTransMat[4], faceTransMat[5], faceTransMat[6], faceTransMat[7])
+            mat4.copyColFrom(1, vec3)
+            vec3.set(faceTransMat[0], faceTransMat[1], faceTransMat[2], faceTransMat[3])
+            mat4.copyColFrom(0, vec3)
+
+            mat4.transpose()
+
+            let q = new Quaternion()
+            q.fromMatrix(mat4)
+            console.log(q)
+            this.model.localQuaternion = q
         }
     }
 }
